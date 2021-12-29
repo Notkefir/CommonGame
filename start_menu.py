@@ -2,19 +2,20 @@ import os
 import sys
 import pygame
 from pygame.locals import *
-
+from  zagotovka3d import begin_game
 pygame.init()
 
-screen_width = 800
-screen_height = 600
-
+screen_width = 1200
+screen_height = 800
+VOLUME = '60'
 FPS = 60
 all_sprites = pygame.sprite.Group()
 screen = pygame.display.set_mode((screen_width, screen_height))
 """название нужно будет поменять"""
 pygame.display.set_caption('PyGame Project')
 BUTTON_CLICK = pygame.mixer.Sound('sounds/button_click.wav')
-
+DIFFICULT = ['easy', 'mid', 'hard']
+IND_DIF = 0
 """сюда нужно добавить звуковое сопровождение разных действий"""
 
 
@@ -89,7 +90,7 @@ class Button:
             """нужно поменять display"""
             pygame.draw.rect(screen, self.active_color, (x, y, self.width, self.height))
             if pygame.key.get_pressed()[K_RETURN]:
-                pygame.mixer.Sound.play(BUTTON_CLICK)
+                pygame.mixer.Sound.play(BUTTON_CLICK).set_volume(int(VOLUME) / 100)
                 pygame.time.delay(300)
                 if action:
                     action()
@@ -102,10 +103,11 @@ class Button:
 
         screen.blit(text, (x + ((self.width - text.get_width()) // 2), y + (self.height - text.get_height()) // 2))
 
-class SystemButton:
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
+
+class SystemButton(Button):
+    def __init__(self, picture, width, height):
+        super().__init__(width, height)
+        self.picture = picture
 
     def draw(self, x, y, message, action=None, font_size=50):
         mouse = pygame.mouse.get_pos()
@@ -113,37 +115,70 @@ class SystemButton:
         mouse_coord_y = mouse[1]
         is_clicked = pygame.mouse.get_pressed()
 
-        if x < mouse_coord_x < x + self.width and y < mouse_coord_y < y + self.height:
-            """нужно поменять display"""
+        screen.blit(pygame.transform.scale(load_image(self.picture), (self.width, self.height)), (x, y))
+        font = pygame.font.Font(None, font_size)
+        text = font.render(message, True, 'white')
+        screen.blit(text, (x + 50, y - 5))
 
+        if x < mouse_coord_x < x + self.width and y < mouse_coord_y < y + self.height:
             if is_clicked[0] == 1:
-                pygame.mixer.Sound.play(BUTTON_CLICK)
+                pygame.mixer.Sound.play(BUTTON_CLICK).set_volume(int(VOLUME) / 100)
                 pygame.time.delay(300)
                 if action:
                     action()
 
-        font = pygame.font.Font(None, font_size)
-        text = font.render(message, True, 'white')
 
-        screen.blit(text, (x + ((self.width - text.get_width()) // 2), y + (self.height - text.get_height()) // 2))
+def text_writter(x, y, text):
+    font = pygame.font.Font(None, 50)
+    text = font.render(text, True, 'white')
+    screen.blit(text, (x, y))
 
 
-def game_begin():
-    fon = pygame.transform.scale(load_image('backgroundfonmenu.jpg'), (screen_width, screen_height))
-    screen.blit(fon, (0, 0))
+def loud_volume():
+    global VOLUME
+    VOLUME = int(VOLUME)
+    VOLUME += 10
+    if VOLUME == 110:
+        VOLUME = 0
 
-    running = True
 
-    clock = pygame.time.Clock()
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    Menu_start()
-        pygame.display.flip()
-    pygame.quit()
+def quiet_volume():
+    global VOLUME
+    VOLUME = int(VOLUME)
+    VOLUME -= 10
+    if VOLUME == 0:
+        VOLUME = 100
+
+
+def up_difficult():
+    global IND_DIF
+    IND_DIF += 1
+    if IND_DIF == 3:
+        IND_DIF = 0
+
+
+def low_difficult():
+    global IND_DIF
+    IND_DIF -= 1
+    if IND_DIF == -1:
+        IND_DIF = 2
+
+
+# def game_begin():
+#     fon = pygame.transform.scale(load_image('backgroundfonmenu.jpg'), (screen_width, screen_height))
+#     screen.blit(fon, (0, 0))
+#     clock = pygame.time.Clock()
+#     running = True
+#     while running:
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 running = False
+#             if event.type == pygame.KEYDOWN:
+#                 if event.key == pygame.K_ESCAPE:
+#                     print(1)
+#                     Menu_start()
+#         pygame.display.flip()
+#     pygame.quit()
 
 
 def settings():
@@ -151,6 +186,10 @@ def settings():
     screen.blit(fon, (0, 0))
     fon = pygame.transform.scale(load_image('wood.png'), (300, 400))
     screen.blit(fon, (250, 50))
+    plus_btn = SystemButton('plus.png', 30, 20)
+    minus_btn = SystemButton('minus-sign.png', 30, 20)
+    left_arrow = SystemButton('left-arrow.png', 30, 20)
+    right_arrow = SystemButton('right-arrow.png', 30, 20)
     running = True
 
     clock = pygame.time.Clock()
@@ -161,8 +200,31 @@ def settings():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     Menu_start()
+        screen.blit(fon, (250, 50))
+        text_writter(340, 100, 'Volume')
+        plus_btn.draw(320, 150, str(VOLUME), loud_volume)
+        minus_btn.draw(440, 150, '', quiet_volume)
+        text_writter(335, 250, 'Difficult')
+        right_arrow.draw(450, 300, '', up_difficult)
+        left_arrow.draw(315, 300, DIFFICULT[IND_DIF], low_difficult)
         pygame.display.flip()
-    pygame.quit()
+
+
+def highscore_table():
+    fon = pygame.transform.scale(load_image('backgroundfonsettings.jpg'), (screen_width, screen_height))
+    screen.blit(fon, (0, 0))
+    fon = pygame.transform.scale(load_image('wood.png'), (400, 500))
+    screen.blit(fon, (215, 50))
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    Menu_start()
+        pygame.display.flip()
 
 
 def Menu_start():
@@ -189,9 +251,9 @@ def Menu_start():
                     m.rect.y += 90
                     if m.rect.y >= 535:
                         m.rect.y = 135
-        start_btn.draw(250, 105, 'Start', game_begin)
+        start_btn.draw(250, 105, 'Start', begin_game)
         settings_btn.draw(250, 195, 'Settings', settings)
-        leaderbords_btn.draw(250, 285, 'Leaderboards')
+        leaderbords_btn.draw(250, 285, 'Leaderboards', highscore_table)
         help_btn.draw(250, 375, 'Help')
         exit_btn.draw(250, 465, 'Exit', terminate)
         all_sprites.draw(screen)
