@@ -2,13 +2,19 @@ import os
 import sys
 import pygame
 from pygame.locals import *
-from  zagotovka3d import begin_game
+from movement import game
+
 pygame.init()
 
-screen_width = 1200
-screen_height = 800
+screen_width = 800
+screen_height = 600
+
 VOLUME = '60'
+
 FPS = 60
+
+
+"""all_sprites нужно будет добавить в функцию и оттуда передавать ее как в файле movement"""
 all_sprites = pygame.sprite.Group()
 screen = pygame.display.set_mode((screen_width, screen_height))
 """название нужно будет поменять"""
@@ -34,12 +40,12 @@ def terminate():
     sys.exit()
 
 
-class Player(pygame.sprite.Sprite):
-    player_image = load_image('smallarrow.png', -1)
+class Arrow(pygame.sprite.Sprite):
+    Arrow_image = load_image('smallarrow.png', -1)
 
     def __init__(self, *group, pos_x=400, pos_y=400):
         super().__init__(*group)
-        self.image = Player.player_image
+        self.image = Arrow.Arrow_image
         self.rect = self.image.get_rect()
         self.rect.x = 100
         self.rect.y = 135
@@ -48,28 +54,11 @@ class Player(pygame.sprite.Sprite):
     def update(self, *args):
         pass
 
-    #     x = y = 0
-    #     if pygame.key.get_pressed()[K_UP]:
-    #         y -= 20
-    #     if pygame.key.get_pressed()[K_DOWN]:
-    #         y += 20
-    #     self.rect = self.rect.move(x, y)
-    #     if self.rect[1] >= 535:
-    #         self.rect = self.rect.move(x, -400)
-    #     if self.rect[1] <= 90:
-    #         self.rect = self.rect.move(x, 400)
-    #
     def get_coords(self):
         return self.rect
-    #
-    # def draw_cursor(self):
-    #     screen.blit(self.image, [self.rect.x, self.rect.y])
-    #
-    # def blit_screen(self):
-    #     pygame.display.update()
 
 
-m = Player(all_sprites)
+m = Arrow(all_sprites)
 
 
 class Button:
@@ -81,9 +70,6 @@ class Button:
 
     def draw(self, x, y, message, action=None, font_size=50):
         arrow_coords = (m.get_coords()[0], m.get_coords()[1])
-        mouse = pygame.mouse.get_pos()
-        # mouse_coord_x = mouse[0]
-        # mouse_coord_y = mouse[1]
         is_clicked = pygame.mouse.get_pressed()
 
         if y < arrow_coords[1] < y + self.height:
@@ -164,21 +150,22 @@ def low_difficult():
         IND_DIF = 2
 
 
-# def game_begin():
-#     fon = pygame.transform.scale(load_image('backgroundfonmenu.jpg'), (screen_width, screen_height))
-#     screen.blit(fon, (0, 0))
-#     clock = pygame.time.Clock()
-#     running = True
-#     while running:
-#         for event in pygame.event.get():
-#             if event.type == pygame.QUIT:
-#                 running = False
-#             if event.type == pygame.KEYDOWN:
-#                 if event.key == pygame.K_ESCAPE:
-#                     print(1)
-#                     Menu_start()
-#         pygame.display.flip()
-#     pygame.quit()
+def game_begin():
+    game()
+    # fon = pygame.transform.scale(load_image('backgroundfonmenu.jpg'), (screen_width, screen_height))
+    # screen.blit(fon, (0, 0))
+    # clock = pygame.time.Clock()
+    # running = True
+    # while running:
+    #     for event in pygame.event.get():
+    #         if event.type == pygame.QUIT:
+    #             running = False
+    #         if event.type == pygame.KEYDOWN:
+    #             if event.key == pygame.K_ESCAPE:
+    #                 print(1)
+    #                 Menu_start()
+    #     pygame.display.flip()
+    # pygame.quit()
 
 
 def settings():
@@ -251,7 +238,7 @@ def Menu_start():
                     m.rect.y += 90
                     if m.rect.y >= 535:
                         m.rect.y = 135
-        start_btn.draw(250, 105, 'Start', begin_game)
+        start_btn.draw(250, 105, 'Start', game_begin)
         settings_btn.draw(250, 195, 'Settings', settings)
         leaderbords_btn.draw(250, 285, 'Leaderboards', highscore_table)
         help_btn.draw(250, 375, 'Help')
