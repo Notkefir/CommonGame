@@ -1,4 +1,6 @@
+import math
 import os
+import random
 import sys
 
 import pygame
@@ -9,6 +11,10 @@ screen = pygame.display.set_mode((800, 600))
 clock = pygame.time.Clock()
 FPS = 60
 STEP = 6
+STEP_ENEMY = 2
+tilewidth = 50
+
+new = 0
 
 
 def terminate():
@@ -50,42 +56,16 @@ def load_image2(name, colorkey=None):
     return image
 
 
-img_counter = 0
-img_counter_attack = 0
-img_counter_idle = 0
+class Spritesheet:
+    def __init__(self, file):
+        self.sheet = load_image(file)
 
-right_run_frames = [load_image('Run1.png'),
-                    load_image('Run2.png'),
-                    load_image('Run3.png'),
-                    load_image('Run4.png'),
-                    load_image('Run5.png'),
-                    load_image('Run6.png'),
-                    load_image('Run7.png'),
-                    load_image('Run8.png')]
+    def get_sprite(self, x, y, width, height):
+        sprite = pygame.Surface([width, height])
+        sprite.blit(self.sheet, (0, 0), (x, y, width, height))
+        sprite.set_colorkey('BLACK')
+        return sprite
 
-left_run_frames = [pygame.transform.flip(image, True, False) for image in right_run_frames]
-
-right_attack_frames = [load_image('Attack1.png'),
-                       load_image('Attack2.png'),
-                       load_image('Attack3.png'),
-                       load_image('Attack4.png'),
-                       load_image('Attack5.png'),
-                       load_image('Attack6.png')]
-
-left_attack_frames = [pygame.transform.flip(image, True, False) for image in right_attack_frames]
-
-right_idle_frames = [load_image('Idle1.png'),
-                     load_image('_dle2.png'),
-                     load_image('Idle3.png'),
-                     load_image('_dle4.png'),
-                     load_image('Idle5.png'),
-                     load_image('Idle6.png'),
-                     load_image('_dle7.png'),
-                     load_image('Idle8.png'),
-                     load_image('Idle9.png'),
-                     load_image('Idle10.png')]
-
-left_idle_frames = [pygame.transform.flip(image, True, False) for image in right_idle_frames]
 
 def load_level(filename):
     filename = filename
@@ -100,19 +80,21 @@ def load_level(filename):
     return list(map(lambda x: x.ljust(max_width, '.'), level_map))
 
 
-def generate_level(sprite_sh_ims, tile_size, level, sprites, tile_groups, tile_images):
-    new_player, x, y = None, None, None
+def generate_level(level, sprites, tile_groups, tile_images, enemies):
+    new_player, new_enemy, x, y = None, None, None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
             # if level[y][x] == '.':
             #     Tile('empty', x, y, tile_groups, sprites, tile_size, tile_images)
             if level[y][x] == '#':
-                Tile('wall', x, y, tile_groups, sprites, tile_size, tile_images)
+                Tile('wall', x, y, tile_groups, sprites, tilewidth, tile_images)
             elif level[y][x] == '@':
                 # Tile('empty', x, y, tile_groups, sprites, tile_size, tile_images)
-                new_player = Player(x, y, sprite_sh_ims, tile_size, sprites, tile_groups)
+                new_player = Player(x, y, sprites, tile_groups, enemies)
+            elif level[y][x] == '%':
+                new_enemy = Enemy(x, y, sprites, tile_groups, enemies)
     # вернем игрока, а также размер поля в клетках
-    return new_player, x, y
+    return new_player, new_enemy
 
 
 class Tile(pygame.sprite.Sprite):
@@ -124,28 +106,44 @@ class Tile(pygame.sprite.Sprite):
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, image, tilewidth, all_sprites, tile_groups):
+    def __init__(self, x, y, all_sprites, tile_groups, enemies):
         super().__init__(all_sprites)
         self.walls_group = tile_groups
-        self.image = image
+        self.enemies_group = enemies
+        self.tile_width = tilewidth
+        self.character_sprite_sheet = Spritesheet('Idles.png')
+        self.run_sprite_sheet = Spritesheet('Run.png')
+        self.attack_sprite_sheet = Spritesheet('Attack.png')
+        self.image = self.character_sprite_sheet.get_sprite(42, 40, 30, 45)
         self.rect = self.image.get_rect()
         self.rect.x = x * 50
         self.rect.y = y * 50
-        self.tile_width = tilewidth
         self.x_change = 0
         self.y_change = 0
         self.facing = 'down'
+        self.animation_loop = 0
+        self.animation_loop_atk = 0
         self.r_l = ''
         self.atk = False
         self.in_move = False
 
+    def collide_enemy(self):
+        hits = pygame.sprite.spritecollide(self, self.enemies_group, False)
+        if hits:
+            self.kill()
+            terminate()
+
     def update(self, *args, **kwargs) -> None:
         self.movements()
+        self.animate()
+        self.collide_enemy()
 
         self.rect.x += self.x_change
         self.rect.y += self.y_change
         if pygame.sprite.spritecollideany(self, self.walls_group['wall']):
             self.rect.x -= self.x_change
+            self.rect.y -= self.y_change
+        if self.rect.y <= 220:
             self.rect.y -= self.y_change
 
         self.x_change = 0
@@ -185,69 +183,230 @@ class Player(pygame.sprite.Sprite):
         if pygame.mouse.get_pressed()[0]:
             self.atk = True
 
+    @property
     def get_pos(self):
-        return self.rect
+        return self.rect.x, self.rect.y
 
-    def standing_person(self):
-        global img_counter_idle
+    def animate(self):
+        idle_animations_right = [self.character_sprite_sheet.get_sprite(42, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(163, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(282, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(402, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(522, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(642, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(762, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(882, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(1002, 40, 30, 45),
+                                 self.character_sprite_sheet.get_sprite(1122, 40, 30, 45)]
+
+        idle_animations_left = [pygame.transform.flip(image, True, False) for image in idle_animations_right]
+
+        run_animations_right = [self.run_sprite_sheet.get_sprite(42, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(163, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(282, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(402, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(522, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(642, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(762, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(882, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(1002, 40, 30, 45),
+                                self.run_sprite_sheet.get_sprite(1122, 40, 30, 45)]
+
+        run_animations_left = [pygame.transform.flip(image, True, False) for image in run_animations_right]
+
+        attack_animations_right = [self.attack_sprite_sheet.get_sprite(40, 40, 40, 45),
+                                   self.attack_sprite_sheet.get_sprite(156, 40, 40, 45),
+                                   self.attack_sprite_sheet.get_sprite(260, 40, 90, 45),
+                                   self.attack_sprite_sheet.get_sprite(380, 40, 69, 45),
+                                   self.attack_sprite_sheet.get_sprite(506, 40, 40, 45),
+                                   self.attack_sprite_sheet.get_sprite(629, 40, 40, 45)]
+
+        attack_animations_left = [pygame.transform.flip(image, True, False) for image in attack_animations_right]
 
         if (self.facing == 'standing' and self.r_l == 'right') or self.facing == 'standing' and self.r_l == '':
-            if img_counter_idle == 40:
-                img_counter_idle = 0
-
-            self.image = (right_idle_frames[img_counter_idle // 5])
-            img_counter_idle += 1
+            self.image = idle_animations_right[math.floor(self.animation_loop // 5)]
+            self.animation_loop += 1
+            if self.animation_loop >= 40:
+                self.animation_loop = 0
         if self.r_l == 'left' and self.facing == 'standing':
-            if img_counter_idle == 40:
-                img_counter_idle = 0
-                print(1)
-
-            self.image = (left_idle_frames[img_counter_idle // 5])
-            img_counter_idle += 1
-
-    def run_person(self):
-        global img_counter
+            self.image = idle_animations_left[math.floor(self.animation_loop // 5)]
+            self.animation_loop += 1
+            if self.animation_loop >= 40:
+                self.animation_loop = 0
 
         if self.facing == 'right':
-            if img_counter == 40:
-                img_counter = 0
+            if self.animation_loop == 40:
+                self.animation_loop = 0
 
-            self.image = (right_run_frames[img_counter // 5])
-            img_counter += 1
+            self.image = (run_animations_right[self.animation_loop // 5])
+            self.animation_loop += 1
         if self.facing == 'left':
-            if img_counter == 40:
-                img_counter = 0
+            if self.animation_loop == 40:
+                self.animation_loop = 0
 
-            self.image = (left_run_frames[img_counter // 5])
-            img_counter += 1
-
-
-    def attack_person(self):
-        global img_counter_attack
-        #print(self.atk, self.in_move, self.r_l)
+            self.image = (run_animations_left[self.animation_loop // 5])
+            self.animation_loop += 1
 
         if self.atk and not self.in_move and self.r_l == '':
-            print(1)
-            if img_counter_attack == 24:
-                img_counter_attack = 0
+            if self.animation_loop_atk == 24:
+                self.animation_loop_atk = 0
 
-            self.image = (right_attack_frames[img_counter_attack // 4])
-            img_counter_attack += 1
+            self.image = (attack_animations_right[self.animation_loop_atk // 6])
+            self.animation_loop_atk += 1
 
         elif (self.r_l == 'right' and not self.in_move) and self.atk:
-            if img_counter_attack == 24:
-                img_counter_attack = 0
+            if self.animation_loop_atk == 24:
+                self.animation_loop_atk = 0
 
-            self.image = (right_attack_frames[img_counter_attack // 4])
-            img_counter_attack += 1
+            self.image = (attack_animations_right[self.animation_loop_atk // 6])
+            self.animation_loop_atk += 1
         elif self.r_l == 'left' and self.atk and self.facing == 'standing':
-            if img_counter_attack == 24:
-                img_counter_attack = 0
+            if self.animation_loop_atk == 24:
+                self.animation_loop_atk = 0
 
-            self.image = (left_attack_frames[img_counter_attack // 4])
-            img_counter_attack += 1
+            self.image = (attack_animations_left[self.animation_loop_atk // 6])
+            self.animation_loop_atk += 1
         self.atk = False
 
+    #
+    # def attack_person(self):
+    #     global img_counter_attack
+    #     # print(self.atk, self.in_move, self.r_l)
+    #
+    # if self.atk and not self.in_move and self.r_l == '':
+    #     if img_counter_attack == 24:
+    #         img_counter_attack = 0
+    #
+    #     self.image = (right_attack_frames[img_counter_attack // 4])
+    #     img_counter_attack += 1
+    #
+    # elif (self.r_l == 'right' and not self.in_move) and self.atk:
+    #     if img_counter_attack == 24:
+    #         img_counter_attack = 0
+    #
+    #     self.image = (right_attack_frames[img_counter_attack // 4])
+    #     img_counter_attack += 1
+    # elif self.r_l == 'left' and self.atk and self.facing == 'standing':
+    #     if img_counter_attack == 24:
+    #         img_counter_attack = 0
+    #
+    #     self.image = (left_attack_frames[img_counter_attack // 4])
+    #     img_counter_attack += 1
+    # self.atk = False
+
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, x, y, all_sprites, tile_groups, enemies_group):
+        super().__init__(all_sprites, enemies_group)
+        self.screen = screen
+        self.walls_group = tile_groups
+        self.enemies_group = enemies_group
+        self.enemy_sprite_sheet_r = Spritesheet('golem.png')
+        self.enemy_sprite_sheet_l = Spritesheet('golem.png')
+        self.image = self.enemy_sprite_sheet_r.get_sprite(2, 8, 40, 42)
+        self.rect = self.image.get_rect()
+        self.rect.x = x * 50
+        self.rect.y = y * 50
+        self.tile_width = tilewidth
+        self.status = 'friendly'
+        self.p_x = 0
+        self.p_y = 0
+
+        self.x_change = 0
+        self.y_change = 0
+
+        self.facing = random.choice(['left', 'right', 'down', 'up'])
+        self.animation_loop = 0
+        self.movement_loop = 0
+        self.max_trevel = random.randint(7, 30)
+        self.r_l = ''
+        self.atk = False
+        self.in_move = False
+
+    def update(self):
+        self.movement()
+        self.animate()
+
+        self.rect.x += self.x_change
+        self.rect.y += self.y_change
+
+        self.x_change = 0
+        self.y_change = 0
+
+    def movement(self):
+        if self.rect.x in range(self.p_x - 20, self.p_x + 50) and self.rect.y in range(self.p_y - 20, self.p_y + 65):
+            self.status = 'agressive'
+        else:
+            self.status = 'friendly'
+        if self.status == 'friendly':
+            if self.facing == 'left':
+                self.x_change -= 3
+                self.movement_loop -= 1
+                if self.movement_loop <= -self.max_trevel:
+                    self.facing = 'right'
+
+            if self.facing == 'right':
+                self.x_change += 3
+                self.movement_loop += 1
+                if self.movement_loop >= self.max_trevel:
+                    self.facing = 'left'
+
+            if self.facing == 'down':
+                self.y_change += 3
+                self.movement_loop += 1
+                if self.movement_loop >= self.max_trevel:
+                    self.facing = 'up'
+
+            if self.facing == 'up':
+                self.y_change -= 3
+                self.movement_loop -= 1
+                if self.movement_loop <= -self.max_trevel:
+                    self.facing = 'down'
+
+    def animate(self):
+        run_animations_right = [self.enemy_sprite_sheet_r.get_sprite(3, 54, 35, 46),
+                                self.enemy_sprite_sheet_r.get_sprite(53, 54, 35, 46),
+                                self.enemy_sprite_sheet_r.get_sprite(101, 54, 35, 46)]
+
+        run_animations_left = [self.enemy_sprite_sheet_l.get_sprite(3, 102, 35, 46),
+                               self.enemy_sprite_sheet_l.get_sprite(53, 102, 35, 46),
+                               self.enemy_sprite_sheet_l.get_sprite(101, 102, 35, 46)]
+
+        run_animations_down = [self.enemy_sprite_sheet_r.get_sprite(2, 6, 44, 46),
+                               self.enemy_sprite_sheet_r.get_sprite(51, 6, 44, 46),
+                               self.enemy_sprite_sheet_r.get_sprite(98, 6, 44, 46)]
+
+        run_animations_up = [self.enemy_sprite_sheet_r.get_sprite(2, 154, 44, 46),
+                             self.enemy_sprite_sheet_r.get_sprite(51, 154, 44, 46),
+                             self.enemy_sprite_sheet_r.get_sprite(98, 154, 44, 46)]
+
+        if self.facing == 'left':
+            if self.animation_loop == 18:
+                self.animation_loop = 0
+
+            self.image = (run_animations_right[self.animation_loop // 6])
+            self.animation_loop += 1
+
+        if self.facing == 'right':
+            if self.animation_loop == 18:
+                self.animation_loop = 0
+
+            self.image = (run_animations_left[self.animation_loop // 6])
+            self.animation_loop += 1
+
+        if self.facing == 'up':
+            if self.animation_loop == 18:
+                self.animation_loop = 0
+
+            self.image = (run_animations_up[self.animation_loop // 6])
+            self.animation_loop += 1
+
+        if self.facing == 'down':
+            if self.animation_loop == 18:
+                self.animation_loop = 0
+
+            self.image = (run_animations_down[self.animation_loop // 6])
+            self.animation_loop += 1
 
 
 def game():
@@ -258,35 +417,30 @@ def game():
     }
     # группы спрайтов
 
-    # Player(600, 400)
-    sprite_sheet_image = load_image('Run1.png', -1)
-    tile_width = tile_height = 50
     all_sprites = pygame.sprite.Group()
     # группы спрайтов
 
-    # player_group = pygame.sprite.Group()
     walls_group = pygame.sprite.Group()
+    enemies_group = pygame.sprite.Group()
 
     tile_groups = {
         'wall': walls_group,
     }
 
-    m, level_x, level_y = generate_level(sprite_sheet_image, tile_width, load_level('map.txt'), all_sprites,
-                                         tile_groups, tile_images)
+    m, new_enemy = generate_level(load_level('map.txt'), all_sprites,
+                                  tile_groups, tile_images, enemies_group)
+
+    x, y = m.get_pos
 
     # m = Player(sprite_sheet_image, tile_width, all_sprites)
     running = True
     while running:
-        #screen.fill('YELLOW')
         screen.blit(fon, (0, 0))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-        m.standing_person()
-        m.run_person()
-        m.attack_person()
         all_sprites.draw(screen)
         # player_group.draw(screen)
         all_sprites.update()

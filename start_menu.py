@@ -8,7 +8,7 @@ pygame.init()
 
 screen_width = 800
 screen_height = 600
-
+img_counter_idle = 40
 VOLUME = '60'
 
 FPS = 60
