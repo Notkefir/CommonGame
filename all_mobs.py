@@ -17,7 +17,6 @@ TILEWIDTH = 50
 new = 0
 
 
-
 def terminate():
     pygame.quit()
     sys.exit()
@@ -25,23 +24,6 @@ def terminate():
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('player_sprites', name)
-    # если файл не существует, то выходим
-    if not os.path.isfile(fullname):
-        print(f"Файл с изображением '{fullname}' не найден")
-        sys.exit()
-    image = pygame.image.load(fullname)
-    if colorkey is not None:
-        image = image.convert()
-        if colorkey == -1:
-            colorkey = image.get_at((0, 0))
-        image.set_colorkey(colorkey)
-    else:
-        image = image.convert_alpha()
-    return image
-
-
-def load_image2(name, colorkey=None):
-    fullname = os.path.join('data', name)
     # если файл не существует, то выходим
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
@@ -118,10 +100,17 @@ class Player(pygame.sprite.Sprite):
             self.kill()
             self.game.playing = False
 
+    def collide_portal(self):
+        hits = pygame.sprite.spritecollide(self, self.game.portal_group, False)
+        if hits:
+            self.kill()
+            self.game.game_vin()
+
     def update(self, *args, **kwargs) -> None:
         self.movements()
         self.animate()
         self.collide_enemy()
+        self.collide_portal()
 
         self.rect.x += self.x_change
         self.collide_blocks('x')
@@ -405,5 +394,36 @@ class Block(pygame.sprite.Sprite):
         self.rect.y = self.y
 
 
+class Portal(pygame.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        super().__init__(self.game.all_sprites, self.game.portal_group)
 
+        self.x = x * 50
+        self.y = y * 50
+        self.width = 50
+        self.height = 50
 
+        self.portal_sprite = Spritesheet('portal.png')
+        self.image = self.portal_sprite.get_sprite(17, 274, 97, 85)
+
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+        self.animation_loop = 0
+
+    def update(self):
+        self.animate()
+
+    def animate(self):
+        portal_animation = [self.portal_sprite.get_sprite(17, 266, 97, 97),
+                            self.portal_sprite.get_sprite(142, 266, 97, 97),
+                            self.portal_sprite.get_sprite(267, 266, 97, 99),
+                            self.portal_sprite.get_sprite(394, 266, 97, 99)]
+
+        if self.animation_loop == 16:
+            self.animation_loop = 0
+
+        self.image = (portal_animation[self.animation_loop // 4])
+        self.animation_loop += 1
