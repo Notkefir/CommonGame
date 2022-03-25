@@ -284,6 +284,7 @@ def settings():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                terminate()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     menu_start()
@@ -343,6 +344,7 @@ def menu_start():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                terminate()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
                     arrow.rect.y -= 90
@@ -471,6 +473,7 @@ class Start:
             if event.type == pygame.QUIT:
                 self.playing = False
                 self.running = False
+                terminate()
             if event.type == pygame.MOUSEBUTTONUP:
                 if self.player.r_l == 'right' or self.player.r_l == '':
                     KILL_SOUND.play(0).set_volume(int(VOLUME) / 100)
