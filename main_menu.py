@@ -335,7 +335,6 @@ def menu_start():
     start_btn = Button(300, 70)
     settings_btn = Button(300, 70)
     leaderbords_btn = Button(300, 70)
-    help_btn = Button(300, 70)
     exit_btn = Button(300, 70)
     running = True
     clock_ = pygame.time.Clock()
@@ -348,16 +347,15 @@ def menu_start():
                 if event.key == pygame.K_UP:
                     arrow.rect.y -= 90
                     if arrow.rect.y <= 120:
-                        arrow.rect.y = 500
+                        arrow.rect.y = 400
                 if event.key == pygame.K_DOWN:
                     arrow.rect.y += 90
-                    if arrow.rect.y >= 535:
+                    if arrow.rect.y >= 435:
                         arrow.rect.y = 135
         start_btn.draw(250, 105, 'Start', start)
         settings_btn.draw(250, 195, 'Settings', settings)
         leaderbords_btn.draw(250, 285, 'Leaderboards', highscore_table)
-        help_btn.draw(250, 375, 'Help')
-        exit_btn.draw(250, 465, 'Exit', terminate)
+        exit_btn.draw(250, 375, 'Exit', terminate)
         all_sprites.draw(screen)
         all_sprites.update()
         pygame.display.flip()
